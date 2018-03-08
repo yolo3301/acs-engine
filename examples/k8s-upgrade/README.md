@@ -51,28 +51,6 @@ To get the list of all available Kubernetes versions and upgrades, run the *orch
         },
         {
           "orchestratorVersion": "1.8.6"
-<<<<<<< HEAD
-        },
-        {
-          "orchestratorVersion": "1.8.7"
-        }
-      ]
-    },
-    {
-      "orchestratorType": "Kubernetes",
-      "orchestratorVersion": "1.5.8",
-      "upgrades": [
-        {
-          "orchestratorType": "",
-          "orchestratorVersion": "1.6.11"
-        },
-        {
-          "orchestratorVersion": "1.6.9"
-        },
-        {
-          "orchestratorVersion": "1.6.12"
-=======
->>>>>>> upstream/master
         },
         {
           "orchestratorVersion": "1.8.7"
