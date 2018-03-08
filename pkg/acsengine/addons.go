@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Azure/acs-engine/pkg/api"
+	"github.com/Azure/acs-engine/pkg/helpers"
 )
 
 type kubernetesFeatureSetting struct {
@@ -60,6 +61,21 @@ func kubernetesAddonSettingsInit(profile *api.Properties) []kubernetesFeatureSet
 			"calico-daemonset.yaml",
 			profile.OrchestratorProfile.KubernetesConfig.NetworkPolicy == "calico",
 		},
+		{
+			"kubernetesmasteraddons-aad-default-admin-group-rbac.yaml",
+			"aad-default-admin-group-rbac.yaml",
+			profile.AADProfile != nil && profile.AADProfile.AdminGroupID != "",
+		},
+		{
+			"kubernetesmasteraddons-azure-cloud-provider-deployment.yaml",
+			"azure-cloud-provider-deployment.yaml",
+			true,
+		},
+		{
+			"kubernetesmasteraddons-metrics-server-deployment.yaml",
+			"kube-metrics-server-deployment.yaml",
+			profile.OrchestratorProfile.IsMetricsServerEnabled(),
+		},
 	}
 }
 
@@ -79,6 +95,16 @@ func kubernetesManifestSettingsInit(profile *api.Properties) []kubernetesFeature
 			"kubernetesmaster-cloud-controller-manager.yaml",
 			"cloud-controller-manager.yaml",
 			profile.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager != nil && *profile.OrchestratorProfile.KubernetesConfig.UseCloudControllerManager,
+		},
+		{
+			"kubernetesmaster-pod-security-policy.yaml",
+			"pod-security-policy.yaml",
+			helpers.IsTrueBoolPointer(profile.OrchestratorProfile.KubernetesConfig.EnablePodSecurityPolicy),
+		},
+		{
+			"kubernetesmaster-audit-policy.yaml",
+			"audit-policy.yaml",
+			isKubernetesVersionGe(profile.OrchestratorProfile.OrchestratorVersion, "1.8.0"),
 		},
 		{
 			"kubernetesmaster-kube-apiserver.yaml",

@@ -21,9 +21,11 @@
     },
     {
       "apiVersion": "[variables('apiVersionStorage')]",
+{{if not IsPrivateCluster}}
       "dependsOn": [
         "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
       ],
+{{end}}
       "kind": "Storage",
       "location": "[variables('location')]",
       "name": "[variables('masterStorageAccountName')]",
@@ -118,6 +120,19 @@
       "type": "Microsoft.Network/routeTables"
     },
 {{end}}
+{{if not IsPrivateCluster}}
+    {
+      "apiVersion": "[variables('apiVersionDefault')]",
+      "location": "[variables('location')]",
+      "name": "[variables('masterPublicIPAddressName')]",
+      "properties": {
+        "dnsSettings": {
+          "domainNameLabel": "[variables('masterFqdnPrefix')]"
+        },
+        "publicIPAllocationMethod": "Dynamic"
+      },
+      "type": "Microsoft.Network/publicIPAddresses"
+    },
     {
       "apiVersion": "[variables('apiVersionDefault')]",
       "dependsOn": [
@@ -177,6 +192,174 @@
       },
       "type": "Microsoft.Network/loadBalancers"
     },
+    {
+      "apiVersion": "[variables('apiVersionDefault')]",
+      "copy": {
+        "count": "[sub(variables('masterCount'), variables('masterOffset'))]",
+        "name": "masterLbLoopNode"
+      },
+      "dependsOn": [
+        "[variables('masterLbID')]"
+      ],
+      "location": "[variables('location')]",
+      "name": "[concat(variables('masterLbName'), '/', 'SSH-', variables('masterVMNamePrefix'), copyIndex(variables('masterOffset')))]",
+      "properties": {
+        "backendPort": 22,
+        "enableFloatingIP": false,
+        "frontendIPConfiguration": {
+          "id": "[variables('masterLbIPConfigID')]"
+        },
+        "frontendPort": "[variables('sshNatPorts')[copyIndex(variables('masterOffset'))]]",
+        "protocol": "tcp"
+      },
+      "type": "Microsoft.Network/loadBalancers/inboundNatRules"
+    },
+    {
+      "apiVersion": "[variables('apiVersionDefault')]",
+      "copy": {
+        "count": "[sub(variables('masterCount'), variables('masterOffset'))]",
+        "name": "nicLoopNode"
+      },
+      "dependsOn": [
+{{if .MasterProfile.IsCustomVNET}}
+        "[variables('nsgID')]",
+{{else}}
+        "[variables('vnetID')]",
+{{end}}
+        "[concat(variables('masterLbID'),'/inboundNatRules/SSH-',variables('masterVMNamePrefix'),copyIndex(variables('masterOffset')))]"
+{{if gt .MasterProfile.Count 1}}
+        ,"[variables('masterInternalLbName')]"
+{{end}}
+      ],
+      "location": "[variables('location')]",
+      "name": "[concat(variables('masterVMNamePrefix'), 'nic-', copyIndex(variables('masterOffset')))]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[concat(variables('masterLbID'), '/backendAddressPools/', variables('masterLbBackendPoolName'))]"
+                }
+{{if gt .MasterProfile.Count 1}}
+                ,               
+                {
+                   "id": "[concat(variables('masterInternalLbID'), '/backendAddressPools/', variables('masterLbBackendPoolName'))]"
+                }
+{{end}}
+              ],
+              "loadBalancerInboundNatRules": [
+                {
+                  "id": "[concat(variables('masterLbID'),'/inboundNatRules/SSH-',variables('masterVMNamePrefix'),copyIndex(variables('masterOffset')))]"
+                }
+              ],
+              "privateIPAddress": "[variables('masterPrivateIpAddrs')[copyIndex(variables('masterOffset'))]]",
+              "primary": true,
+              "privateIPAllocationMethod": "Static",
+              "subnet": {
+                "id": "[variables('vnetSubnetID')]"
+              }
+            }
+          }
+{{if IsAzureCNI}}
+          {{range $seq := loop 2 .MasterProfile.IPAddressCount}}
+          ,
+          {
+            "name": "ipconfig{{$seq}}",
+            "properties": {
+              "primary": false,
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('vnetSubnetID')]"
+              }
+            }
+          }
+          {{end}}
+{{end}}
+        ]
+{{if not IsAzureCNI}}
+        ,
+        "enableIPForwarding": true
+{{end}}
+{{if .MasterProfile.IsCustomVNET}}
+        ,"networkSecurityGroup": {
+          "id": "[variables('nsgID')]"
+        }
+{{end}}
+      },
+      "type": "Microsoft.Network/networkInterfaces"
+    },
+{{else}}
+    {
+      "apiVersion": "[variables('apiVersionDefault')]",
+      "copy": {
+        "count": "[sub(variables('masterCount'), variables('masterOffset'))]",
+        "name": "nicLoopNode"
+      },
+      "dependsOn": [
+{{if .MasterProfile.IsCustomVNET}}
+        "[variables('nsgID')]"
+{{else}}
+        "[variables('vnetID')]"
+{{end}}
+{{if gt .MasterProfile.Count 1}}
+        ,"[variables('masterInternalLbName')]"
+{{end}}
+      ],
+      "location": "[variables('location')]",
+      "name": "[concat(variables('masterVMNamePrefix'), 'nic-', copyIndex(variables('masterOffset')))]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "loadBalancerBackendAddressPools": [
+{{if gt .MasterProfile.Count 1}}                
+                {
+                   "id": "[concat(variables('masterInternalLbID'), '/backendAddressPools/', variables('masterLbBackendPoolName'))]"
+                }
+{{end}}
+              ],
+              "loadBalancerInboundNatRules": [
+              ],
+              "privateIPAddress": "[variables('masterPrivateIpAddrs')[copyIndex(variables('masterOffset'))]]",
+              "primary": true,
+              "privateIPAllocationMethod": "Static",
+              "subnet": {
+                "id": "[variables('vnetSubnetID')]"
+              }
+            }
+          }
+{{if IsAzureCNI}}
+          {{range $seq := loop 2 .MasterProfile.IPAddressCount}}
+          ,
+          {
+            "name": "ipconfig{{$seq}}",
+            "properties": {
+              "primary": false,
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('vnetSubnetID')]"
+              }
+            }
+          }
+          {{end}}
+{{end}}
+        ]
+{{if not IsAzureCNI}}
+        ,
+        "enableIPForwarding": true
+{{end}}
+{{if .MasterProfile.IsCustomVNET}}
+        ,"networkSecurityGroup": {
+          "id": "[variables('nsgID')]"
+        }
+{{end}}
+      },
+      "type": "Microsoft.Network/networkInterfaces"
+    },
+{{end}}
 {{if gt .MasterProfile.Count 1}}
     {
       "apiVersion": "[variables('apiVersionDefault')]",
@@ -240,116 +423,6 @@
       "type": "Microsoft.Network/loadBalancers"
     },
 {{end}}
-    {
-      "apiVersion": "[variables('apiVersionDefault')]",
-      "location": "[variables('location')]",
-      "name": "[variables('masterPublicIPAddressName')]",
-      "properties": {
-        "dnsSettings": {
-          "domainNameLabel": "[variables('masterFqdnPrefix')]"
-        },
-        "publicIPAllocationMethod": "Dynamic"
-      },
-      "type": "Microsoft.Network/publicIPAddresses"
-    },
-    {
-      "apiVersion": "[variables('apiVersionDefault')]",
-      "copy": {
-        "count": "[sub(variables('masterCount'), variables('masterOffset'))]",
-        "name": "masterLbLoopNode"
-      },
-      "dependsOn": [
-        "[variables('masterLbID')]"
-      ],
-      "location": "[variables('location')]",
-      "name": "[concat(variables('masterLbName'), '/', 'SSH-', variables('masterVMNamePrefix'), copyIndex(variables('masterOffset')))]",
-      "properties": {
-        "backendPort": 22,
-        "enableFloatingIP": false,
-        "frontendIPConfiguration": {
-          "id": "[variables('masterLbIPConfigID')]"
-        },
-        "frontendPort": "[variables('sshNatPorts')[copyIndex(variables('masterOffset'))]]",
-        "protocol": "tcp"
-      },
-      "type": "Microsoft.Network/loadBalancers/inboundNatRules"
-    },
-    {
-      "apiVersion": "[variables('apiVersionDefault')]",
-      "copy": {
-        "count": "[sub(variables('masterCount'), variables('masterOffset'))]",
-        "name": "nicLoopNode"
-      },
-      "dependsOn": [
-{{if .MasterProfile.IsCustomVNET}}
-        "[variables('nsgID')]",
-{{else}}
-        "[variables('vnetID')]",
-{{end}}
-        "[concat(variables('masterLbID'),'/inboundNatRules/SSH-',variables('masterVMNamePrefix'),copyIndex(variables('masterOffset')))]"
-{{if gt .MasterProfile.Count 1}}
-        ,"[variables('masterInternalLbName')]"
-{{end}}
-      ],
-      "location": "[variables('location')]",
-      "name": "[concat(variables('masterVMNamePrefix'), 'nic-', copyIndex(variables('masterOffset')))]",
-      "properties": {
-        "ipConfigurations": [
-          {
-            "name": "ipconfig1",
-            "properties": {
-              "loadBalancerBackendAddressPools": [
-                {
-                  "id": "[concat(variables('masterLbID'), '/backendAddressPools/', variables('masterLbBackendPoolName'))]"
-                }
-{{if gt .MasterProfile.Count 1}}                
-                ,
-                {
-                   "id": "[concat(variables('masterInternalLbID'), '/backendAddressPools/', variables('masterLbBackendPoolName'))]"
-                }
-{{end}}
-              ],
-              "loadBalancerInboundNatRules": [
-                {
-                  "id": "[concat(variables('masterLbID'),'/inboundNatRules/SSH-',variables('masterVMNamePrefix'),copyIndex(variables('masterOffset')))]"
-                }
-              ],
-              "privateIPAddress": "[variables('masterPrivateIpAddrs')[copyIndex(variables('masterOffset'))]]",
-              "primary": true,
-              "privateIPAllocationMethod": "Static",
-              "subnet": {
-                "id": "[variables('vnetSubnetID')]"
-              }
-            }
-          }
-{{if IsAzureCNI}}
-          {{range $seq := loop 2 .MasterProfile.IPAddressCount}}
-          ,
-          {
-            "name": "ipconfig{{$seq}}",
-            "properties": {
-              "primary": false,
-              "privateIPAllocationMethod": "Dynamic",
-              "subnet": {
-                "id": "[variables('vnetSubnetID')]"
-              }
-            }
-          }
-          {{end}}
-{{end}}
-        ]
-{{if not IsAzureCNI}}
-        ,
-        "enableIPForwarding": true
-{{end}}
-{{if .MasterProfile.IsCustomVNET}}
-        ,"networkSecurityGroup": {
-          "id": "[variables('nsgID')]"
-        }
-{{end}}
-      },
-      "type": "Microsoft.Network/networkInterfaces"
-    },
     {
     {{if .MasterProfile.IsManagedDisks}}
       "apiVersion": "[variables('apiVersionStorageManagedDisks')]",
@@ -515,7 +588,7 @@
         "autoUpgradeMinorVersion": true,
         "settings": {},
         "protectedSettings": {
-          "commandToExecute": "[concat(variables('provisionScriptParametersCommon'),' ',variables('provisionScriptParametersMaster'), ' MASTER_INDEX=',copyIndex(variables('masterOffset')),' /usr/bin/nohup /bin/bash -c \"stat /opt/azure/containers/provision.complete || /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1\"')]"
+          "commandToExecute": "[concat(variables('provisionScriptParametersCommon'),' ',variables('provisionScriptParametersMaster'), ' MASTER_INDEX=',copyIndex(variables('masterOffset')),' /usr/bin/nohup /bin/bash -c \"stat /opt/azure/containers/provision.complete > /dev/null 2>&1 || /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1\"')]"
         }
       }
     }{{WriteLinkedTemplatesForExtensions}}

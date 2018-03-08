@@ -246,11 +246,13 @@ type KubernetesConfig struct {
 	EnableRbac                   *bool             `json:"enableRbac,omitempty"`
 	EnableSecureKubelet          *bool             `json:"enableSecureKubelet,omitempty"`
 	EnableAggregatedAPIs         bool              `json:"enableAggregatedAPIs,omitempty"`
+	EnablePrivateCluster         bool              `json:"enablePrivateCluster,omitempty"`
 	GCHighThreshold              int               `json:"gchighthreshold,omitempty"`
 	GCLowThreshold               int               `json:"gclowthreshold,omitempty"`
 	EtcdVersion                  string            `json:"etcdVersion,omitempty"`
 	EtcdDiskSizeGB               string            `json:"etcdDiskSizeGB,omitempty"`
 	EnableDataEncryptionAtRest   *bool             `json:"enableDataEncryptionAtRest,omitempty"`
+	EnablePodSecurityPolicy      *bool             `json:"enablePodSecurityPolicy,omitempty"`
 	Addons                       []KubernetesAddon `json:"addons,omitempty"`
 	KubeletConfig                map[string]string `json:"kubeletConfig,omitempty"`
 	ControllerManagerConfig      map[string]string `json:"controllerManagerConfig,omitempty"`
@@ -357,6 +359,10 @@ type AADProfile struct {
 	// If not specified, will use the tenant of the deployment subscription.
 	// Optional
 	TenantID string `json:"tenantID,omitempty"`
+	// The Azure Active Directory Group Object ID that will be assigned the
+	// cluster-admin RBAC role.
+	// Optional
+	AdminGroupID string `json:"adminGroupID,omitempty"`
 }
 
 // KeyVaultSecrets specifies certificates to install on the pool

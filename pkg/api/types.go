@@ -196,7 +196,7 @@ func (a *KubernetesAddon) IsEnabled(ifNil bool) bool {
 }
 
 // CloudProviderConfig contains the KubernetesConfig properties specific to the Cloud Provider
-// TODO use this when strict JSON accommodates struct embedding
+// TODO use this when strict JSON checking accommodates struct embedding
 type CloudProviderConfig struct {
 	CloudProviderBackoff         bool    `json:"cloudProviderBackoff,omitempty"`
 	CloudProviderBackoffRetries  int     `json:"cloudProviderBackoffRetries,omitempty"`
@@ -209,7 +209,7 @@ type CloudProviderConfig struct {
 }
 
 // KubernetesConfigDeprecated are properties that are no longer operable and will be ignored
-// TODO use this when strict JSON accommodates struct embedding
+// TODO use this when strict JSON checking accommodates struct embedding
 type KubernetesConfigDeprecated struct {
 	NonMasqueradeCidr                string `json:"nonMasqueradeCidr,omitempty"`
 	NodeStatusUpdateFrequency        string `json:"nodeStatusUpdateFrequency,omitempty"`
@@ -239,11 +239,13 @@ type KubernetesConfig struct {
 	EnableRbac                       *bool             `json:"enableRbac,omitempty"`
 	EnableSecureKubelet              *bool             `json:"enableSecureKubelet,omitempty"`
 	EnableAggregatedAPIs             bool              `json:"enableAggregatedAPIs,omitempty"`
+	EnablePrivateCluster             bool              `json:"enablePrivateCluster,omitempty"`
 	GCHighThreshold                  int               `json:"gchighthreshold,omitempty"`
 	GCLowThreshold                   int               `json:"gclowthreshold,omitempty"`
 	EtcdVersion                      string            `json:"etcdVersion,omitempty"`
 	EtcdDiskSizeGB                   string            `json:"etcdDiskSizeGB,omitempty"`
 	EnableDataEncryptionAtRest       *bool             `json:"enableDataEncryptionAtRest,omitempty"`
+	EnablePodSecurityPolicy          *bool             `json:"enablePodSecurityPolicy,omitempty"`
 	Addons                           []KubernetesAddon `json:"addons,omitempty"`
 	KubeletConfig                    map[string]string `json:"kubeletConfig,omitempty"`
 	ControllerManagerConfig          map[string]string `json:"controllerManagerConfig,omitempty"`
@@ -423,6 +425,10 @@ type AADProfile struct {
 	// If not specified, will use the tenant of the deployment subscription.
 	// Optional
 	TenantID string `json:"tenantID,omitempty"`
+	// The Azure Active Directory Group Object ID that will be assigned the
+	// cluster-admin RBAC role.
+	// Optional
+	AdminGroupID string `json:"adminGroupID,omitempty"`
 }
 
 // CustomProfile specifies custom properties that are used for
@@ -685,4 +691,18 @@ func (k *KubernetesConfig) IsReschedulerEnabled() bool {
 		}
 	}
 	return reschedulerAddon.IsEnabled(DefaultReschedulerAddonEnabled)
+}
+
+// IsMetricsServerEnabled checks if the metrics server addon is enabled
+func (o *OrchestratorProfile) IsMetricsServerEnabled() bool {
+	var metricsServerAddon KubernetesAddon
+	k := o.KubernetesConfig
+	for i := range k.Addons {
+		if k.Addons[i].Name == DefaultMetricsServerAddonName {
+			metricsServerAddon = k.Addons[i]
+		}
+	}
+	k8sSemVer, _ := semver.NewVersion(o.OrchestratorVersion)
+	constraint, _ := semver.NewConstraint(">= 1.9.0")
+	return metricsServerAddon.IsEnabled(DefaultMetricsServerAddonEnabled) || constraint.Check(k8sSemVer)
 }
