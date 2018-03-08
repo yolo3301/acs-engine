@@ -343,7 +343,6 @@
     "tenantId": "[subscription().tenantId]",
     "singleQuote": "'",
     "targetEnvironment": "[parameters('targetEnvironment')]",
-    "singleQuote": "'",
     "dockerEngineDownloadRepo": "[parameters('dockerEngineDownloadRepo')]",
     "dockerEngineVersion": "[parameters('dockerEngineVersion')]"
 {{if .LinuxProfile.HasSecrets}}

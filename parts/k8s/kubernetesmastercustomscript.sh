@@ -134,7 +134,6 @@ touch "${APISERVER_PUBLIC_KEY_PATH}"
 chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
 chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
 
-# If APISERVER_PRIVATE_KEY is empty, then we are not on the master
 if [[ ! -z "${MASTER_NODE}" ]]; then
     echo "MASTER_NODE is non-empty, master node, configure azure json."
 
@@ -174,7 +173,7 @@ if [[ ! -z "${MASTER_NODE}" ]]; then
 }
 EOF
 else
-    echo "APISERVER_PRIVATE_KEY is empty, assuming worker node, skip azure json."
+    echo "MASTER_NODE is empty, worker node, skip azure json."
 fi
 
 ###########################################################
