@@ -744,8 +744,6 @@ if [[ ! -z "${MASTER_NODE}" ]]; then
     ensureEtcd
     ensureK8s
     ensurePodSecurityPolicy
-
-    /usr/local/bin/kubectl create clusterrolebinding superuser --clusterrole=cluster-admin --user=client
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
