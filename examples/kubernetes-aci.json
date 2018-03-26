@@ -1,0 +1,91 @@
+{
+  "apiVersion": "vlabs",
+  "plan": {},
+  "properties": {
+    "provisioningState": "",
+    "orchestratorProfile": {
+      "orchestratorType": "Kubernetes",
+      "orchestratorVersion": "1.8.2",
+      "kubernetesConfig": {
+        "networkPolicy": "none",
+        "kubeletConfig": {
+          "--cloud-provider": "",
+          "--cloud-config": "",
+          "--azure-container-registry-config": ""
+        },
+        "addons": [
+          {
+            "name": "tiller",
+            "enabled" : false
+          },
+          {
+            "name": "kubernetes-dashboard",
+            "enabled" : false
+          }
+        ]
+      }
+    },
+    "masterProfile": {
+      "count": 1,
+      "dnsPrefix": "caas-test-eastus-linux-03",
+      "vmSize": "Standard_D2_v2",
+      "firstConsecutiveStaticIP": "10.240.255.5"
+    },
+    "agentPoolProfiles": [
+      {
+        "name": "system",
+        "count": 2,
+        "vmSize": "Standard_F1",
+        "availabilityProfile": "AvailabilitySet",
+        "storageProfile": "StorageAccount",
+        "osType": "Linux"
+      },
+      {
+        "name": "agentpool1",
+        "count": 2,
+        "vmSize": "Standard_F2",
+        "availabilityProfile": "AvailabilitySet",
+        "storageProfile": "StorageAccount",
+        "osType": "Linux"
+      },
+      {
+        "name": "agentpool2",
+        "count": 3,
+        "vmSize": "Standard_F1",
+        "availabilityProfile": "AvailabilitySet",
+        "storageProfile": "StorageAccount",
+        "osType": "Linux",
+        "osDiskSizeGB": 50
+      },
+      {
+        "name": "agentpool3",
+        "count": 3,
+        "vmSize": "Standard_F1",
+        "availabilityProfile": "AvailabilitySet",
+        "storageProfile": "StorageAccount",
+        "osType": "Linux",
+        "osDiskSizeGB": 50
+      }
+    ],
+    "linuxProfile": {
+      "adminUsername": "azureuser",
+      "ssh": {
+        "publicKeys": [
+          {
+            "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA3fOxIwM0O3dXfiQgcdvqvlTJyDj+bIfnAn54G2KFXDr+cvlpmVSCdy31TwNQFZR1Ts14qK1t+Jc96FX0oy4QQlDQAZDvh2rjOoMvBdR6vIG4VGLBOMJB6TV6jNyTFI8yc77OCfjvw7NTXhLyCazp8Hyh9Yb14wskhQTO/qt2PqZ1/b5z0I/5ZZbFVLdEBJudFkyceO1B2TGYSUBqyMiO+4DT8mFFE+Cf4NcrsXcNEUw3jqKmUYsKlvIf1jKJNNKp2zHaw67ByZm/kOKZVQucBXBzXwWvbbjrrGzIuXVgBrEyeLNAH5oWl3VyrL+6vKz2mN3wGuTrNcLefIezwTc/tQ=="
+          }
+        ]
+      }
+    },
+    "windowsProfile": {
+      "adminUsername": "azureuser",
+      "adminPassword": "value-in-key-vault"
+    },
+    "servicePrincipalProfile": {
+      "clientId": "597ec5f8-9e25-425b-be42-deaf90dc5af5",
+      "secret": "value-in-key-vault"
+    },
+    "certificateProfile": {},
+    "nameSuffix": "a03eus0l"
+  }
+}
