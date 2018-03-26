@@ -65,9 +65,11 @@
         "name": "loop"
       },
       {{if not IsHostedMaster}}
-      "dependsOn": [
-        "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
-      ],
+        {{if not IsPrivateCluster}}
+          "dependsOn": [
+            "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
+          ],
+        {{end}}
       {{end}}
       "kind": "Storage",
       "location": "[variables('location')]",
@@ -99,9 +101,11 @@
         "name": "datadiskLoop"
       },
       {{if not IsHostedMaster}}
-      "dependsOn": [
-        "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
-      ],
+        {{if not IsPrivateCluster}}
+          "dependsOn": [
+            "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
+          ],
+        {{end}}
       {{end}}
       "kind": "Storage",
       "location": "[variables('location')]",

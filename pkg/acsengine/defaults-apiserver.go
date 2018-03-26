@@ -10,14 +10,11 @@ import (
 func setAPIServerConfig(cs *api.ContainerService) {
 	o := cs.Properties.OrchestratorProfile
 	staticLinuxAPIServerConfig := map[string]string{
-		"--address":                    "0.0.0.0",
+		"--bind-address":               "0.0.0.0",
 		"--advertise-address":          "<kubernetesAPIServerIP>",
 		"--allow-privileged":           "true",
 		"--anonymous-auth":             "false",
-		"--audit-log-maxage":           "30",
-		"--audit-log-maxbackup":        "10",
-		"--audit-log-maxsize":          "100",
-		"--audit-log-path":             "/var/log/apiserver/audit.log",
+		"--audit-log-path":             "/var/log/audit.log",
 		"--insecure-port":              "8080",
 		"--secure-port":                "443",
 		"--service-account-lookup":     "true",
@@ -45,7 +42,7 @@ func setAPIServerConfig(cs *api.ContainerService) {
 	}
 
 	// Aggregated API configuration
-	if o.KubernetesConfig.EnableAggregatedAPIs {
+	if o.KubernetesConfig.EnableAggregatedAPIs || isKubernetesVersionGe(o.OrchestratorVersion, "1.9.0") {
 		staticLinuxAPIServerConfig["--requestheader-client-ca-file"] = "/etc/kubernetes/certs/proxy-ca.crt"
 		staticLinuxAPIServerConfig["--proxy-client-cert-file"] = "/etc/kubernetes/certs/proxy.crt"
 		staticLinuxAPIServerConfig["--proxy-client-key-file"] = "/etc/kubernetes/certs/proxy.key"
@@ -70,7 +67,12 @@ func setAPIServerConfig(cs *api.ContainerService) {
 		if GetCloudTargetEnv(cs.Location) == "AzureChinaCloud" {
 			issuerHost = "sts.chinacloudapi.cn"
 		}
-		staticLinuxAPIServerConfig["--oidc-issuer-url"] = "https://" + issuerHost + "/"
+		staticLinuxAPIServerConfig["--oidc-issuer-url"] = "https://" + issuerHost + "/" + cs.Properties.AADProfile.TenantID + "/"
+	}
+
+	// Audit Policy configuration
+	if isKubernetesVersionGe(o.OrchestratorVersion, "1.8.0") {
+		staticLinuxAPIServerConfig["--audit-policy-file"] = "/etc/kubernetes/manifests/audit-policy.yaml"
 	}
 
 	staticWindowsAPIServerConfig := make(map[string]string)
@@ -82,21 +84,24 @@ func setAPIServerConfig(cs *api.ContainerService) {
 
 	// Default apiserver config
 	defaultAPIServerConfig := map[string]string{
-		"--admission-control":  "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota,DenyEscalatingExec,AlwaysPullImages,SecurityContextDeny",
-		"--authorization-mode": "Node",
+		"--admission-control":   "NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota,DenyEscalatingExec,AlwaysPullImages",
+		"--audit-log-maxage":    "30",
+		"--audit-log-maxbackup": "10",
+		"--audit-log-maxsize":   "100",
 	}
 
 	// RBAC configuration
 	if helpers.IsTrueBoolPointer(o.KubernetesConfig.EnableRbac) {
-		defaultAPIServerConfig["--authorization-mode"] = "RBAC"
 		if isKubernetesVersionGe(o.OrchestratorVersion, "1.7.0") {
 			defaultAPIServerConfig["--authorization-mode"] = "Node,RBAC"
+		} else {
+			defaultAPIServerConfig["--authorization-mode"] = "RBAC"
 		}
-	} else if !isKubernetesVersionGe(o.OrchestratorVersion, "1.7.0") {
-		// remove authorization-mode for 1.6 clusters without RBAC since Node authorization isn't supported
-		for _, key := range []string{"--authorization-mode"} {
-			delete(defaultAPIServerConfig, key)
-		}
+	}
+
+	// Pod Security Policy configuration
+	if helpers.IsTrueBoolPointer(o.KubernetesConfig.EnablePodSecurityPolicy) {
+		defaultAPIServerConfig["--admission-control"] = defaultAPIServerConfig["--admission-control"] + ",PodSecurityPolicy"
 	}
 
 	// If no user-configurable apiserver config values exists, use the defaults

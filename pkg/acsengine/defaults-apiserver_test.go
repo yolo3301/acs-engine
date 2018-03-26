@@ -115,6 +115,7 @@ func TestAPIServerConfigHasAadProfile(t *testing.T) {
 	cs := createContainerService("testcluster", common.KubernetesVersion1Dot7Dot12, 3, 2)
 	cs.Properties.AADProfile = &api.AADProfile{
 		ServerAppID: "test-id",
+		TenantID:    "test-tenant",
 	}
 	setAPIServerConfig(cs)
 	a := cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
@@ -130,7 +131,7 @@ func TestAPIServerConfigHasAadProfile(t *testing.T) {
 		t.Fatalf("got unexpected '--oidc-client-id' API server config value for HasAadProfile=true: %s",
 			a["--oidc-client-id"])
 	}
-	if a["--oidc-issuer-url"] != "https://sts.windows.net/" {
+	if a["--oidc-issuer-url"] != "https://sts.windows.net/"+cs.Properties.AADProfile.TenantID+"/" {
 		t.Fatalf("got unexpected '--oidc-issuer-url' API server config value for HasAadProfile=true: %s",
 			a["--oidc-issuer-url"])
 	}
@@ -139,11 +140,12 @@ func TestAPIServerConfigHasAadProfile(t *testing.T) {
 	cs = createContainerService("testcluster", common.KubernetesVersion1Dot7Dot12, 3, 2)
 	cs.Properties.AADProfile = &api.AADProfile{
 		ServerAppID: "test-id",
+		TenantID:    "test-tenant",
 	}
 	cs.Location = "chinaeast"
 	setAPIServerConfig(cs)
 	a = cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
-	if a["--oidc-issuer-url"] != "https://sts.chinacloudapi.cn/" {
+	if a["--oidc-issuer-url"] != "https://sts.chinacloudapi.cn/"+cs.Properties.AADProfile.TenantID+"/" {
 		t.Fatalf("got unexpected '--oidc-issuer-url' API server config value for HasAadProfile=true using China cloud: %s",
 			a["--oidc-issuer-url"])
 	}
@@ -186,7 +188,7 @@ func TestAPIServerConfigEnableRbac(t *testing.T) {
 	cs.Properties.OrchestratorProfile.KubernetesConfig.EnableRbac = pointerToBool(false)
 	setAPIServerConfig(cs)
 	a = cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
-	if a["--authorization-mode"] != "Node" {
+	if _, ok := a["--authorization-mode"]; ok {
 		t.Fatalf("got unexpected '--authorization-mode' API server config value for EnableRbac=false: %s",
 			a["--authorization-mode"])
 	}
@@ -219,7 +221,7 @@ func TestAPIServerConfigEnableSecureKubelet(t *testing.T) {
 
 	// Test EnableSecureKubelet = false
 	cs = createContainerService("testcluster", common.KubernetesVersion1Dot7Dot12, 3, 2)
-	cs.Properties.OrchestratorProfile.KubernetesConfig.EnableDataEncryptionAtRest = pointerToBool(false)
+	cs.Properties.OrchestratorProfile.KubernetesConfig.EnableSecureKubelet = pointerToBool(false)
 	setAPIServerConfig(cs)
 	a = cs.Properties.OrchestratorProfile.KubernetesConfig.APIServerConfig
 	for _, key := range []string{"--kubelet-client-certificate", "--kubelet-client-key"} {
@@ -272,7 +274,21 @@ func createContainerService(containerServiceName string, orchestratorVersion str
 	cs.Properties.OrchestratorProfile = &api.OrchestratorProfile{}
 	cs.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
-	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{}
+	cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{
+		EnableSecureKubelet: pointerToBool(api.DefaultSecureKubeletEnabled),
+		EnableRbac:          pointerToBool(api.DefaultRBACEnabled),
+		EtcdDiskSizeGB:      DefaultEtcdDiskSize,
+		ServiceCIDR:         DefaultKubernetesServiceCIDR,
+		DockerBridgeSubnet:  DefaultDockerBridgeSubnet,
+		DNSServiceIP:        DefaultKubernetesDNSServiceIP,
+		GCLowThreshold:      DefaultKubernetesGCLowThreshold,
+		GCHighThreshold:     DefaultKubernetesGCHighThreshold,
+		MaxPods:             DefaultKubernetesMaxPodsVNETIntegrated,
+		ClusterSubnet:       DefaultKubernetesSubnet,
+		ContainerRuntime:    DefaultContainerRuntime,
+		NetworkPolicy:       DefaultNetworkPolicy,
+		EtcdVersion:         DefaultEtcdVersion,
+	}
 
 	cs.Properties.CertificateProfile = &api.CertificateProfile{}
 	cs.Properties.CertificateProfile.CaCertificate = "cacert"

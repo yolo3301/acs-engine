@@ -17,10 +17,9 @@ func setKubeletConfig(cs *api.ContainerService) {
 		"--authorization-mode":              "Webhook",
 		"--client-ca-file":                  "/etc/kubernetes/certs/ca.crt",
 		"--pod-manifest-path":               "/etc/kubernetes/manifests",
-		"--cluster-domain":                  "cluster.local",
-		"--cluster-dns":                     DefaultKubernetesDNSServiceIP,
-		"--cgroups-per-qos":                 "false",
-		"--enforce-node-allocatable":        "",
+		"--cluster-dns":                     o.KubernetesConfig.DNSServiceIP,
+		"--cgroups-per-qos":                 "true",
+		"--enforce-node-allocatable":        "pods",
 		"--kubeconfig":                      "/var/lib/kubelet/kubeconfig",
 		"--azure-container-registry-config": "/etc/kubernetes/azure.json",
 		"--keep-terminated-pod-volumes":     "false",
@@ -30,11 +29,10 @@ func setKubeletConfig(cs *api.ContainerService) {
 	for key, val := range staticLinuxKubeletConfig {
 		staticWindowsKubeletConfig[key] = val
 	}
-	// Windows kubelet config overrides
-	staticWindowsKubeletConfig["--network-plugin"] = NetworkPluginKubenet
 
 	// Default Kubelet config
 	defaultKubeletConfig := map[string]string{
+		"--cluster-domain":               "cluster.local",
 		"--network-plugin":               "cni",
 		"--pod-infra-container-image":    cloudSpecConfig.KubernetesSpecConfig.KubernetesImageBase + KubeConfigs[o.OrchestratorVersion]["pause"],
 		"--max-pods":                     strconv.Itoa(DefaultKubernetesKubeletMaxPods),
@@ -45,10 +43,13 @@ func setKubeletConfig(cs *api.ContainerService) {
 		"--non-masquerade-cidr":          DefaultNonMasqueradeCidr,
 		"--cloud-provider":               "azure",
 		"--cloud-config":                 "/etc/kubernetes/azure.json",
+		"--event-qps":                    DefaultKubeletEventQPS,
+		"--cadvisor-port":                DefaultKubeletCadvisorPort,
 	}
 
 	// If no user-configurable kubelet config values exists, use the defaults
 	setMissingKubeletValues(o.KubernetesConfig, defaultKubeletConfig)
+	addDefaultFeatureGates(o.KubernetesConfig.KubeletConfig, o.OrchestratorVersion, "", "")
 
 	// Override default cloud-provider?
 	if helpers.IsTrueBoolPointer(o.KubernetesConfig.UseCloudControllerManager) {
@@ -81,7 +82,7 @@ func setKubeletConfig(cs *api.ContainerService) {
 
 	// Remove secure kubelet flags, if configured
 	if !helpers.IsTrueBoolPointer(o.KubernetesConfig.EnableSecureKubelet) {
-		for _, key := range []string{"--anonymous-auth", "--authorization-mode", "--client-ca-file"} {
+		for _, key := range []string{"--anonymous-auth", "--client-ca-file"} {
 			delete(o.KubernetesConfig.KubeletConfig, key)
 		}
 	}
@@ -90,15 +91,20 @@ func setKubeletConfig(cs *api.ContainerService) {
 	if cs.Properties.MasterProfile != nil {
 		if cs.Properties.MasterProfile.KubernetesConfig == nil {
 			cs.Properties.MasterProfile.KubernetesConfig = &api.KubernetesConfig{}
+			cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig = copyMap(cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig)
 		}
 		setMissingKubeletValues(cs.Properties.MasterProfile.KubernetesConfig, o.KubernetesConfig.KubeletConfig)
+		addDefaultFeatureGates(cs.Properties.MasterProfile.KubernetesConfig.KubeletConfig, o.OrchestratorVersion, "", "")
+
 	}
 	// Agent-specific kubelet config changes go here
 	for _, profile := range cs.Properties.AgentPoolProfiles {
 		if profile.KubernetesConfig == nil {
 			profile.KubernetesConfig = &api.KubernetesConfig{}
+			profile.KubernetesConfig.KubeletConfig = copyMap(profile.KubernetesConfig.KubeletConfig)
 		}
 		setMissingKubeletValues(profile.KubernetesConfig, o.KubernetesConfig.KubeletConfig)
+		addDefaultFeatureGates(profile.KubernetesConfig.KubeletConfig, o.OrchestratorVersion, "1.6.0", "Accelerators=true")
 	}
 }
 
@@ -114,4 +120,11 @@ func setMissingKubeletValues(p *api.KubernetesConfig, d map[string]string) {
 			}
 		}
 	}
+}
+func copyMap(input map[string]string) map[string]string {
+	copy := map[string]string{}
+	for key, value := range input {
+		copy[key] = value
+	}
+	return copy
 }
