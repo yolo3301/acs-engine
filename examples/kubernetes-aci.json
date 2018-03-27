@@ -72,20 +72,19 @@
       "ssh": {
         "publicKeys": [
           {
-            "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEA3fOxIwM0O3dXfiQgcdvqvlTJyDj+bIfnAn54G2KFXDr+cvlpmVSCdy31TwNQFZR1Ts14qK1t+Jc96FX0oy4QQlDQAZDvh2rjOoMvBdR6vIG4VGLBOMJB6TV6jNyTFI8yc77OCfjvw7NTXhLyCazp8Hyh9Yb14wskhQTO/qt2PqZ1/b5z0I/5ZZbFVLdEBJudFkyceO1B2TGYSUBqyMiO+4DT8mFFE+Cf4NcrsXcNEUw3jqKmUYsKlvIf1jKJNNKp2zHaw67ByZm/kOKZVQucBXBzXwWvbbjrrGzIuXVgBrEyeLNAH5oWl3VyrL+6vKz2mN3wGuTrNcLefIezwTc/tQ=="
+            "keyData": ""
           }
         ]
       }
     },
     "windowsProfile": {
-      "adminUsername": "azureuser",
-      "adminPassword": "value-in-key-vault"
+      "adminUsername": "",
+      "adminPassword": ""
     },
     "servicePrincipalProfile": {
-      "clientId": "597ec5f8-9e25-425b-be42-deaf90dc5af5",
-      "secret": "value-in-key-vault"
+      "clientId": "",
+      "secret": ""
     },
-    "certificateProfile": {},
-    "nameSuffix": "a03eus0l"
+    "certificateProfile": {}
   }
 }
