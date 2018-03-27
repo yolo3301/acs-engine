@@ -19,8 +19,7 @@ Enable Managed Identity by adding `useManagedIdentity` in `kubernetesConfig`.
 
 ```json
 "kubernetesConfig": {
-  "useManagedIdentity": true,
-  "customHyperkubeImage": "docker.io/colemickens/hyperkube-amd64:3b15e8a446fa09d68a2056e2a5e650c90ae849ed"
+  "useManagedIdentity": true
 }
 ```
 
@@ -167,6 +166,8 @@ Per default Calico still allows all communication within the cluster. Using Kube
 
 ## Custom VNET
 
+*Note: Custom VNET for Kubernetes Windows cluster has a [known issue](https://github.com/Azure/acs-engine/issues/1767).*
+
 ACS Engine supports deploying into an existing VNET. Operators must specify the ARM path/id of Subnets for the `masterProfile` and  any `agentPoolProfiles`, as well as the first IP address to use for IP static IP allocation in `firstConsecutiveStaticIP`. Additionally, to prevent source address NAT'ing within the VNET, we assign to the `vnetCidr` property in `masterProfile` the CIDR block that represents the usable address space in the existing VNET.
 
 Depending upon the size of the VNET address space, during deployment, it is possible to experience IP address assignment collision between the required Kubernetes static IPs (one each per master and one for the API server load balancer, if more than one masters) and Azure CNI-assigned dynamic IPs (one for each NIC on the agent nodes). In practice, the larger the VNET the less likely this is to happen; some detail, and then a guideline.
@@ -271,3 +272,23 @@ This should look like:
       }
     ],
 ```
+
+<a name="feat-private-cluster"></a>
+
+## Private Cluster
+
+You can build a private Kubernetes cluster with no public IP addresses assigned by setting:
+
+```
+      "kubernetesConfig": {
+        "enablePrivateCluster": true
+      }
+```
+
+In order to access this cluster using kubectl commands, you will need a jumpbox in the same VNET (or onto a peer VNET that routes to the VNET). You can create a new jumpbox (if you don't already have one) in the Azure Portal under "Create a resource > Compute > Ubuntu Server 16.04 LTS VM" or using the [az cli](https://docs.microsoft.com/en-us/cli/azure/vm?view=azure-cli-latest#az_vm_create). You will then be able to:
+- install [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) on the jumpbox
+- copy the kubeconfig artifact for the right region from the deployment directory to the jumpbox
+- run `export KUBECONFIG=<path to your kubeconfig>`
+- run `kubectl` commands directly on the jumpbox
+
+Alternatively, you may also ssh into your nodes (given that your ssh key is on the jumpbox) and use the admin user kubeconfig on the cluster to run `kubectl` commands directly on the cluster. However, in the case of a multi-master private cluster, the connection will be refused when running commands on a master every time that master gets picked by the load balancer as it will be routing to itself (1 in 3 times for a 3 master cluster, 1 in 5 for 5 masters). This is expected behavior and therefore the method aforementioned of accessing nodes on the jumpbox using the `_output` directory kubeconfig is preferred.
