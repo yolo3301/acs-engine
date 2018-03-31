@@ -334,6 +334,62 @@ func GenerateKubeConfig(properties *api.Properties, location string) (string, er
 	return kubeconfig, nil
 }
 
+func (t *TemplateGenerator) DumpKubeAgentCustomData(cs *api.ContainerService) (string, error) {
+	var profile *api.AgentPoolProfile
+	for _, p := range cs.Properties.AgentPoolProfiles {
+		if p.Name == "agentpool2" {
+			profile = p
+			break
+		}
+	}
+
+	if profile == nil {
+		return "", fmt.Errorf("Must contain at least 2 agentpools")
+	}
+
+	customDataTemplate := kubernetesAgentCustomDataYaml
+	if profile.OSType == "Windows" {
+		customDataTemplate = kubernetesWindowsAgentCustomDataPS1
+	}
+
+	str, e := t.getSingleLineForTemplate(customDataTemplate, cs, profile)
+
+	if e != nil {
+		return "", e
+	}
+
+	if profile.OSType != "Windows" {
+		// add artifacts
+		str = substituteConfigString(str,
+			kubernetesArtifactSettingsInit(cs.Properties),
+			"k8s/artifacts",
+			"/etc/systemd/system",
+			"AGENT_ARTIFACTS_CONFIG_PLACEHOLDER",
+			cs.Properties.OrchestratorProfile.OrchestratorVersion)
+	}
+
+	r := regexp.MustCompile("',variables[(]'([a-zA-Z0-9]+)'[)],'")
+	matches := r.FindAllStringSubmatch(str, -1)
+
+	for _, match := range matches {
+		str = strings.Replace(str, match[0], fmt.Sprintf("{{%v}}", match[1]), -1)
+	}
+	str = strings.Replace(str, "\\n", "\n", -1)
+	str = strings.Replace(str, "\\\"", "\"", -1)
+
+	return str, nil
+}
+
+func (t *TemplateGenerator) DumpKubeProvisionScript() string {
+	b, err := Asset(kubernetesMasterCustomScript)
+	if err != nil {
+		// this should never happen and this is a bug
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
+	// translate the parameters
+	return string(b)
+}
+
 func (t *TemplateGenerator) prepareTemplateFiles(properties *api.Properties) ([]string, string, error) {
 	var files []string
 	var baseFile string

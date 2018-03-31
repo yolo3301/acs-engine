@@ -30,6 +30,7 @@ type generateCmd struct {
 	classicMode       bool
 	noPrettyPrint     bool
 	parametersOnly    bool
+	dumpRaw           bool
 
 	// derived
 	containerService *api.ContainerService
@@ -60,6 +61,7 @@ func newGenerateCmd() *cobra.Command {
 	f.BoolVar(&gc.classicMode, "classic-mode", false, "enable classic parameters and outputs")
 	f.BoolVar(&gc.noPrettyPrint, "no-pretty-print", false, "skip pretty printing the output")
 	f.BoolVar(&gc.parametersOnly, "parameters-only", false, "only output parameters files")
+	f.BoolVar(&gc.dumpRaw, "dump-raw", false, "dump files that can be used to provision single node")
 
 	return generateCmd
 }
@@ -166,6 +168,29 @@ func (gc *generateCmd) run() error {
 	}
 	if err = writer.WriteTLSArtifacts(gc.containerService, gc.apiVersion, template, parameters, gc.outputDirectory, certsGenerated, gc.parametersOnly); err != nil {
 		log.Fatalf("error writing artifacts: %s \n", err.Error())
+	}
+
+	if gc.dumpRaw {
+		customDataDump, err := templateGenerator.DumpKubeAgentCustomData(gc.containerService)
+		if err != nil {
+			log.Fatalf("Failed to dump custom data: %s", err.Error())
+		}
+
+		provisionScriptDump := templateGenerator.DumpKubeProvisionScript()
+
+		f := acsengine.FileSaver{
+			Translator: &i18n.Translator{
+				Locale: gc.locale,
+			},
+		}
+
+		if err = f.SaveFile(gc.outputDirectory, "user-data.txt", []byte(customDataDump)); err != nil {
+			return err
+		}
+
+		if err = f.SaveFile(gc.outputDirectory, "provision.sh", []byte(provisionScriptDump)); err != nil {
+			return err
+		}
 	}
 
 	return nil
